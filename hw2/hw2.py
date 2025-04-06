@@ -13,7 +13,7 @@ morph_analyzer = MorphAnalyzer()
 
 stop_words = set(stopwords.words("russian"))
 
-input_directory = "../hm1/pages"
+input_directory = "../hw1/pages"
 output_directory = "output"
 os.makedirs(output_directory, exist_ok=True)
 
