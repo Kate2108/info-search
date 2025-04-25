@@ -18,12 +18,17 @@ def get_texts():
 def get_lemmas():
     lemmas_dict = dict()
     for file_name in listdir(LEMMAS_PATH):
-        lemmas = open(LEMMAS_PATH + '/' + file_name, 'r', encoding='utf-8', errors='ignore')
-        lines = lemmas.read().splitlines()
-        lemmas.close()
-        for l in lines:
-            parts = l.split()
-            lemmas_dict[parts[0]] = parts[1:]
+        with open(LEMMAS_PATH + '/' + file_name, 'r', encoding='utf-8', errors='ignore') as lemmas:
+            lines = lemmas.read().splitlines()
+            for l in lines:
+                parts = l.split(" ")
+                key = parts[0]
+                values = parts[1:]
+
+                if key in lemmas_dict:
+                    lemmas_dict[key].extend(v for v in values if v not in lemmas_dict[key])
+                else:
+                    lemmas_dict[key] = values
     return lemmas_dict
 
 
