@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Векторная поисковая система</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .search-container {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #search-input {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #search-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #search-button:hover {
+            background-color: #3367d6;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .result-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .result-item:hover {
+            background-color: #f9f9f9;
+        }
+        .document {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .score {
+            color: #666;
+            font-size: 14px;
+        }
+        .no-results {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <h1>Векторная поисковая система</h1>
+        <input type="text" id="search-input" placeholder="Введите поисковый запрос...">
+        <button id="search-button">Поиск</button>
+    </div>
+
+    <div id="results-container" class="results">
+        <!-- Результаты будут загружены здесь -->
+    </div>
+
+    <script>
+        document.getElementById('search-button').addEventListener('click', performSearch);
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (!query) return;
+
+            fetch(`/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => displayResults(data.results))
+                .catch(error => console.error('Ошибка:', error));
+        }
+
+        function displayResults(results) {
+            const container = document.getElementById('results-container');
+
+            if (results.length === 0) {
+                container.innerHTML = '<div class="no-results">Ничего не найдено</div>';
+                return;
+            }
+
+            let html = '';
+            results.forEach(result => {
+                html += `
+                    <div class="result-item">
+                        <div class="document">${result.document}</div>
+                        <div class="score">Рейтинг: ${result.score}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
