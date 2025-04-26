@@ -74,6 +74,27 @@
         background-color: #F44336;
         color: white;
     }
+    .loader {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 20px auto;
+        display: none;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .results-info {
+        margin-bottom: 15px;
+        color: #666;
+        font-size: 14px;
+        padding: 5px;
+        border-bottom: 1px solid #eee;
+    }
     </style>
 </head>
 <body>
@@ -82,6 +103,7 @@
     <input type="text" id="search-input" placeholder="Введите поисковый запрос...">
     <button id="search-button">Поиск</button>
 </div>
+<div class="loader" id="loader"></div>
 
 <div id="results-container" class="results">
     <!-- Результаты будут загружены здесь -->
@@ -96,54 +118,76 @@
     });
 
     function performSearch() {
-    const query = document.getElementById('search-input').value.trim();
-    if (!query) return;
+        const query = document.getElementById('search-input').value.trim();
+        if (!query) return;
 
-    fetch(`/search?q=${encodeURIComponent(query)}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Received data:', data);  // Добавим лог для отладки
-            displayResults(data.results || []);  // Добавляем fallback на случай отсутствия results
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('results-container').innerHTML =
-                '<div class="no-results">Ошибка при выполнении поиска</div>';
-        });
+        const loader = document.getElementById('loader');
+        const resultsContainer = document.getElementById('results-container');
+
+        // Показываем индикатор загрузки
+        loader.style.display = 'block';
+        resultsContainer.innerHTML = '';
+
+        fetch(`/search?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                  if (Array.isArray(data)) {
+                       displayResults(data);  // data уже является массивом результатов
+                  } else if (data.error) {
+                       throw new Error(data.error);
+                  } else {
+                       throw new Error("Неверный формат ответа от сервера");
+                  }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultsContainer.innerHTML = `
+                    <div class="no-results">
+                        Ошибка: ${error.message || 'Произошла ошибка при поиске'}
+                    </div>
+                `;
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+            });
     }
 
     function displayResults(results) {
-        const container = document.getElementById('results-container');
-        console.log('Displaying results:', results);  // Лог для отладки
+    const container = document.getElementById('results-container');
 
-        if (!results || results.length === 0) {
-             container.innerHTML = '<div class="no-results">Ничего не найдено</div>';
-             return;
-        }
-
-        let html = '';
-        results.forEach(result => {
-             const relevance = result.relevance || 'Низкая';  // Добавляем fallback
-             const relevanceClass = getRelevanceClass(relevance);
-             const score = result.score || '0.0000';  // Добавляем fallback
-
-             html += `
-                 <div class="result-item">
-                 <div class="document">${result.document}
-                    <span class="relevance ${relevanceClass}">${relevance}</span>
-                 </div>
-                 <div class="score">Рейтинг: ${score}</div>
-             </div>
-             `;
-        });
-
-         container.innerHTML = html;
+    if (!results || results.length === 0) {
+        container.innerHTML = '<div class="no-results">Ничего не найдено</div>';
+        return;
     }
+
+    let html = `
+        <div class="results-info">
+            Найдено результатов: ${results.length}
+        </div>
+    `;
+
+    results.forEach(result => {
+        const relevance = result.relevance || 'Низкая';
+        const relevanceClass = getRelevanceClass(relevance);
+        const score = result.score || '0.0000';
+
+        html += `
+            <div class="result-item">
+                <div class="document">${result.document}
+                    <span class="relevance ${relevanceClass}">${relevance}</span>
+                </div>
+                <div class="score">Рейтинг: ${score}</div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
 
     function getRelevanceClass(relevance) {
         switch(relevance) {
