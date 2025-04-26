@@ -3,6 +3,7 @@ import os
 import pymorphy3
 from nltk import word_tokenize
 from os import listdir, path
+from collections import defaultdict
 
 LEMMAS_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw2/processed_results/')
 TF_IDF_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw4/result/lemmas/')
@@ -19,6 +20,45 @@ class SearchingSystem:
         self.document_lengths = dict()
         self.get_lemmas_tf_idf()
         self.calc_document_vector_length()
+        self.idf = self.calculate_idf()
+
+    def calculate_idf(self):
+        """Рассчитываем IDF для каждого термина"""
+        total_docs = len(self.documents_lemmas_tf_idf)
+        idf = defaultdict(float)
+
+        for lemma, docs in self.lemmas_documents_tf_idf.items():
+            idf[lemma] = math.log(total_docs / (1 + len(docs)))
+
+        return idf
+
+    def calculate_query_vector(self, query_terms):
+        """Рассчитывает вектор запроса с TF-IDF"""
+        query_tf = defaultdict(float)
+        for term in query_terms:
+            query_tf[term] += 1.0 / len(query_terms)
+
+        query_vector = {}
+        for term in query_terms:
+            if term in self.idf:
+                query_vector[term] = query_tf[term] * self.idf[term]
+
+        return query_vector
+
+    def cosine_similarity(self, query_vector, doc_vector, doc_length):
+        """Вычисляет косинусную меру близости"""
+        dot_product = 0.0
+        query_length = 0.0
+
+        for term, q_weight in query_vector.items():
+            dot_product += q_weight * doc_vector.get(term, 0.0)
+            query_length += q_weight ** 2
+
+        query_length = math.sqrt(query_length)
+        if query_length == 0 or doc_length == 0:
+            return 0.0
+
+        return dot_product / (query_length * doc_length)
 
     def get_index(self):
         index = dict()
@@ -67,15 +107,26 @@ class SearchingSystem:
         return sum(document_vector.get(token, 0) for token in query_vector) / len(query_vector) / document_vector_length
 
     def search(self, query):
-        query_vector = [self.morph.parse(token)[0].normal_form for token in word_tokenize(query, language='russian')]
-        documents = set()
-        for lemma in query_vector:
-            documents = documents.union(self.index.get(lemma, set()))
-        result = dict()
-        for doc in documents:
+        """Модифицированный метод поиска с ранжированием"""
+        query_terms = [self.morph.parse(token)[0].normal_form
+                       for token in word_tokenize(query, language='russian')]
+
+        query_vector = self.calculate_query_vector(query_terms)
+        relevant_docs = set()
+
+        for term in query_terms:
+            relevant_docs.update(self.index.get(term, set()))
+
+        results = []
+        for doc in relevant_docs:
             tf_idf_doc = doc.split('-')[1].split(".")[0] + '_lemmas.txt'
-            result[doc] = self.multiply_vectors(query_vector, self.documents_lemmas_tf_idf[tf_idf_doc], self.document_lengths[tf_idf_doc])
-        return sorted(result.items(), key=lambda r: r[1], reverse=True)
+            if tf_idf_doc in self.documents_lemmas_tf_idf:
+                doc_vector = self.documents_lemmas_tf_idf[tf_idf_doc]
+                doc_length = self.document_lengths[tf_idf_doc]
+                score = self.cosine_similarity(query_vector, doc_vector, doc_length)
+                results.append((doc, score))
+
+        return sorted(results, key=lambda x: x[1], reverse=True)
 
 
 if __name__ == '__main__':

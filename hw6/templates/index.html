@@ -57,57 +57,105 @@
             color: #666;
             padding: 20px;
         }
+        .relevance {
+        font-size: 12px;
+        padding: 3px 6px;
+        border-radius: 3px;
+        margin-left: 10px;
+        }
+        .relevance-high {
+        background-color: #4CAF50;
+        color: white;
+        }
+        .relevance-medium {
+        background-color: #FFC107;
+    }
+    .relevance-low {
+        background-color: #F44336;
+        color: white;
+    }
     </style>
 </head>
 <body>
-    <div class="search-container">
-        <h1>Векторная поисковая система</h1>
-        <input type="text" id="search-input" placeholder="Введите поисковый запрос...">
-        <button id="search-button">Поиск</button>
-    </div>
+<div class="search-container">
+    <h1>Векторная поисковая система</h1>
+    <input type="text" id="search-input" placeholder="Введите поисковый запрос...">
+    <button id="search-button">Поиск</button>
+</div>
 
-    <div id="results-container" class="results">
-        <!-- Результаты будут загружены здесь -->
-    </div>
+<div id="results-container" class="results">
+    <!-- Результаты будут загружены здесь -->
+</div>
 
-    <script>
-        document.getElementById('search-button').addEventListener('click', performSearch);
-        document.getElementById('search-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
+<script>
+    document.getElementById('search-button').addEventListener('click', performSearch);
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+
+    function performSearch() {
+    const query = document.getElementById('search-input').value.trim();
+    if (!query) return;
+
+    fetch(`/search?q=${encodeURIComponent(query)}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
             }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received data:', data);  // Добавим лог для отладки
+            displayResults(data.results || []);  // Добавляем fallback на случай отсутствия results
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('results-container').innerHTML =
+                '<div class="no-results">Ошибка при выполнении поиска</div>';
+        });
+    }
+
+    function displayResults(results) {
+        const container = document.getElementById('results-container');
+        console.log('Displaying results:', results);  // Лог для отладки
+
+        if (!results || results.length === 0) {
+             container.innerHTML = '<div class="no-results">Ничего не найдено</div>';
+             return;
+        }
+
+        let html = '';
+        results.forEach(result => {
+             const relevance = result.relevance || 'Низкая';  // Добавляем fallback
+             const relevanceClass = getRelevanceClass(relevance);
+             const score = result.score || '0.0000';  // Добавляем fallback
+
+             html += `
+                 <div class="result-item">
+                 <div class="document">${result.document}
+                    <span class="relevance ${relevanceClass}">${relevance}</span>
+                 </div>
+                 <div class="score">Рейтинг: ${score}</div>
+             </div>
+             `;
         });
 
-        function performSearch() {
-            const query = document.getElementById('search-input').value.trim();
-            if (!query) return;
+         container.innerHTML = html;
+    }
 
-            fetch(`/search?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => displayResults(data.results))
-                .catch(error => console.error('Ошибка:', error));
+    function getRelevanceClass(relevance) {
+        switch(relevance) {
+            case 'Очень высокая':
+            case 'Высокая':
+                return 'relevance-high';
+            case 'Средняя':
+                return 'relevance-medium';
+            default:
+                return 'relevance-low';
         }
-
-        function displayResults(results) {
-            const container = document.getElementById('results-container');
-
-            if (results.length === 0) {
-                container.innerHTML = '<div class="no-results">Ничего не найдено</div>';
-                return;
-            }
-
-            let html = '';
-            results.forEach(result => {
-                html += `
-                    <div class="result-item">
-                        <div class="document">${result.document}</div>
-                        <div class="score">Рейтинг: ${result.score}</div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
