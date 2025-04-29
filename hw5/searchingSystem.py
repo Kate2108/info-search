@@ -4,9 +4,9 @@ import pymorphy3
 from nltk import word_tokenize
 from os import listdir, path
 
-LEMMAS_PATH = path.dirname('D:/Study/info-search/hw2/processed_results/')
-TF_IDF_PATH = path.dirname('D:/Study/info-search/hw4/result/lemmas/')
-INDEX_PATH = 'D:/Study/info-search/hw3/inverted_index.txt'
+LEMMAS_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw2/processed_results/')
+TF_IDF_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw4/result/lemmas/')
+INDEX_PATH = '/Users/olga/PycharmProjects/info-search/hw3/inverted_index.txt'
 
 class SearchingSystem:
 

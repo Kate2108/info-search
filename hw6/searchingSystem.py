@@ -9,6 +9,7 @@ LEMMAS_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw2/processe
 TF_IDF_PATH = path.dirname('/Users/olga/PycharmProjects/info-search/hw4/result/lemmas/')
 INDEX_PATH = '/Users/olga/PycharmProjects/info-search/hw3/inverted_index.txt'
 
+
 class SearchingSystem:
 
     def __init__(self):
@@ -20,45 +21,6 @@ class SearchingSystem:
         self.document_lengths = dict()
         self.get_lemmas_tf_idf()
         self.calc_document_vector_length()
-        self.idf = self.calculate_idf()
-
-    def calculate_idf(self):
-        """Рассчитываем IDF для каждого термина"""
-        total_docs = len(self.documents_lemmas_tf_idf)
-        idf = defaultdict(float)
-
-        for lemma, docs in self.lemmas_documents_tf_idf.items():
-            idf[lemma] = math.log(total_docs / (1 + len(docs)))
-
-        return idf
-
-    def calculate_query_vector(self, query_terms):
-        """Рассчитывает вектор запроса с TF-IDF"""
-        query_tf = defaultdict(float)
-        for term in query_terms:
-            query_tf[term] += 1.0 / len(query_terms)
-
-        query_vector = {}
-        for term in query_terms:
-            if term in self.idf:
-                query_vector[term] = query_tf[term] * self.idf[term]
-
-        return query_vector
-
-    def cosine_similarity(self, query_vector, doc_vector, doc_length):
-        """Вычисляет косинусную меру близости"""
-        dot_product = 0.0
-        query_length = 0.0
-
-        for term, q_weight in query_vector.items():
-            dot_product += q_weight * doc_vector.get(term, 0.0)
-            query_length += q_weight ** 2
-
-        query_length = math.sqrt(query_length)
-        if query_length == 0 or doc_length == 0:
-            return 0.0
-
-        return dot_product / (query_length * doc_length)
 
     def get_index(self):
         index = dict()
@@ -103,29 +65,58 @@ class SearchingSystem:
         for doc in os.listdir(TF_IDF_PATH):
             self.document_lengths[doc] = math.sqrt(sum(i ** 2 for i in self.documents_lemmas_tf_idf[doc].values()))
 
-    def multiply_vectors(self, query_vector, document_vector, document_vector_length):
-        return sum(document_vector.get(token, 0) for token in query_vector) / len(query_vector) / document_vector_length
-
     def search(self, query):
-        """Модифицированный метод поиска с ранжированием"""
+        # Нормализация запроса
         query_terms = [self.morph.parse(token)[0].normal_form
                        for token in word_tokenize(query, language='russian')]
 
-        query_vector = self.calculate_query_vector(query_terms)
+        # Удаляем дубликаты терминов в запросе
+        unique_query_terms = list(set(query_terms))
+
+        # Собираем все релевантные документы
         relevant_docs = set()
+        for term in unique_query_terms:
+            if term in self.index:
+                relevant_docs.update(self.index[term])
 
-        for term in query_terms:
-            relevant_docs.update(self.index.get(term, set()))
+        # Если нет релевантных документов
+        if not relevant_docs:
+            return []
 
+        # Рассчитываем TF для запроса (без IDF)
+        query_tf = {}
+        for term in unique_query_terms:
+            query_tf[term] = query_tf.get(term, 0) + 1.0 / len(unique_query_terms)
+
+        # Рассчитываем релевантность для каждого документа
         results = []
         for doc in relevant_docs:
-            tf_idf_doc = doc.split('-')[1].split(".")[0] + '_lemmas.txt'
+            # Преобразуем имя документа в формат 'X_lemmas.txt'
+            doc_id = doc.split('-')[1].split('.')[0]
+            tf_idf_doc = f"{doc_id}_lemmas.txt"
+
             if tf_idf_doc in self.documents_lemmas_tf_idf:
                 doc_vector = self.documents_lemmas_tf_idf[tf_idf_doc]
                 doc_length = self.document_lengths[tf_idf_doc]
-                score = self.cosine_similarity(query_vector, doc_vector, doc_length)
+
+                # Косинусная мера
+                dot_product = 0.0
+                query_length = 0.0
+
+                for term, q_tf in query_tf.items():
+                    if term in doc_vector:
+                        dot_product += q_tf * doc_vector[term]
+                    query_length += q_tf ** 2
+
+                query_length = math.sqrt(query_length)
+                if query_length == 0 or doc_length == 0:
+                    score = 0.0
+                else:
+                    score = dot_product / (query_length * doc_length)
+
                 results.append((doc, score))
 
+        # Сортируем по убыванию релевантности
         return sorted(results, key=lambda x: x[1], reverse=True)
 
 
